@@ -1,0 +1,76 @@
+---
+title: "Предобработка данных теста 'Ментальное вращение'"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 10)
+```
+
+```{r}
+get_names <- function(names, prefix=NULL) {
+  v <- vector()
+  for (name in 1:length(names)) {
+    v <- c(v, paste0(prefix, name))
+  }
+  return(v)
+}
+```
+
+
+```{r}
+correct_answers <- c(1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1)
+LENGTH_TEST <- 32
+mrot <- read.table("data/mrot.dat", stringsAsFactors = F)
+mrot <- na.omit(mrot)
+moodle_users <- read.csv("./data/users_moodle.csv")
+names(moodle_users)[1] <- "user_id"
+```
+
+
+```{r}
+names(mrot) <- c("username", "firstname", "lastname")
+names(mrot)[4:67][rep(c(T, F), 32)] <- get_names(names(mrot)[4:67][rep(c(T, F), 32)], "a")
+names(mrot)[4:67][rep(c(F, T), 32)] <- get_names(names(mrot)[4:67][rep(c(T, F), 32)], "t")
+```
+
+```{r}
+data_mrot <- data.frame(username=character(),
+                       time_all=numeric(), time_static=numeric(), time_animation=numeric(),
+                       right_all=numeric(), right_static=numeric(), right_animation=numeric(),
+                       error_all=numeric(), error_static=numeric(), error_animation=numeric(),
+                       stringsAsFactors = F)
+
+for (user in seq_along(mrot$username)) {
+  time_all <- sum(mrot[user, 4:67][rep(c(F, T), 32)])
+  time_static <- sum(mrot[user, 4:35][rep(c(F, T), 16)])
+  time_animation <- sum(mrot[user, 36:67][rep(c(F, T), 16)])
+  
+  right_all <- LENGTH_TEST - sum(mrot[user, 4:67][rep(c(T, F), 32)] != correct_answers)
+  right_static <- LENGTH_TEST/2 - sum(mrot[user, 4:35][rep(c(T, F), 16)] != correct_answers[1:16])
+  right_animation <- LENGTH_TEST/2 - sum(mrot[user, 36:67][rep(c(T, F), 16)] != correct_answers[17:32])
+  
+  error_all <- LENGTH_TEST - right_all
+  error_static <- LENGTH_TEST/2 - right_static
+  error_animation <- LENGTH_TEST/2 - right_animation
+  
+  data_mrot <- add_row(data_mrot, username=mrot$username[user], 
+                       time_all=time_all, time_static=time_static, time_animation=time_animation,
+                       right_all=right_all, right_static=right_static, right_animation=right_animation,
+                       error_all=error_all, error_static=error_static, error_animation=error_animation)
+}
+
+
+data_mrot
+
+```
+
+```{r}
+data_mrot <- merge(data_mrot, moodle_users, by='username', all = T, all.x = T, all.y = F)
+data_mrot <- relocate(data_mrot, user_id, .before = username)
+
+write.csv2(data_mrot, file = "./data/data_mrot.csv", row.names = F)
+write_xlsx(data_mrot, "./data/data_mrot.xlsx")
+```
+
