@@ -14,6 +14,7 @@ suppressMessages(library("RMySQL"))
 suppressMessages(library("tibble"))
 suppressMessages(library("dplyr"))
 suppressMessages(library("writexl"))
+suppressMessages(library("dotenv"))
 ```
 
 
@@ -21,16 +22,15 @@ suppressMessages(library("writexl"))
 correct_answers <- c(1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1)
 ```
 
-
 ```{r}
 # База данных moodle.tsu.su
 db_moodle_tsu <- dbConnect(RMySQL::MySQL(),
-                user="root",
-                password="gweiE5idCZTEbR3iKzUY6",
-                dbname="bitnami_moodle",
-                host="92.63.64.76",
-                port=as.numeric(33061),
-                encoding = "UTF-8")
+                   user=Sys.getenv("USER"),
+                   password=Sys.getenv("PASSWORD"),
+                   dbname=Sys.getenv("DBNAME"),
+                   host=Sys.getenv("HOST"),
+                   port=as.numeric(Sys.getenv("PORT")),
+                   encoding = "UTF-8")
 
 dbGetQuery(db_moodle_tsu,'SET NAMES utf8') #для установления кодировки, если появляются "???" в данных
 ```
@@ -79,3 +79,5 @@ write_xlsx(mrot, "./data/mrot_raw.xlsx")
 write_xlsx(mrot_results, "./data/mrot_results.xlsx")
 write_xlsx(mrot_all, "./data/mrot_all.xlsx")
 ```
+
+
