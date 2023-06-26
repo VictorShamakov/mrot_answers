@@ -9,67 +9,78 @@ options(scipen = 10)
 ```
 
 ```{r}
-get_names <- function(names, prefix=NULL) {
-  v <- vector()
-  for (name in 1:length(names)) {
-    v <- c(v, paste0(prefix, name))
-  }
-  return(v)
-}
+suppressMessages(library("DBI"))
+suppressMessages(library("RMySQL"))
+suppressMessages(library("tibble"))
+suppressMessages(library("dplyr"))
+suppressMessages(library("writexl"))
 ```
 
 
 ```{r}
 correct_answers <- c(1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1)
 LENGTH_TEST <- 32
-mrot <- read.table("data/mrot.dat", stringsAsFactors = F)
-mrot <- na.omit(mrot)
-moodle_users <- read.csv("./data/users_moodle.csv")
-names(moodle_users)[1] <- "user_id"
 ```
 
 
 ```{r}
-names(mrot) <- c("username", "firstname", "lastname")
-names(mrot)[4:67][rep(c(T, F), 32)] <- get_names(names(mrot)[4:67][rep(c(T, F), 32)], "a")
-names(mrot)[4:67][rep(c(F, T), 32)] <- get_names(names(mrot)[4:67][rep(c(T, F), 32)], "t")
+# База данных moodle.tsu.su
+db_moodle_tsu <- dbConnect(RMySQL::MySQL(),
+                user="root",
+                password="gweiE5idCZTEbR3iKzUY6",
+                dbname="bitnami_moodle",
+                host="92.63.64.76",
+                port=as.numeric(33061),
+                encoding = "UTF-8")
+
+dbGetQuery(db_moodle_tsu,'SET NAMES utf8') #для установления кодировки, если появляются "???" в данных
 ```
 
-```{r}
-data_mrot <- data.frame(username=character(),
-                       time_all=numeric(), time_static=numeric(), time_animation=numeric(),
-                       right_all=numeric(), right_static=numeric(), right_animation=numeric(),
-                       error_all=numeric(), error_static=numeric(), error_animation=numeric(),
-                       stringsAsFactors = F)
 
-for (user in seq_along(mrot$username)) {
-  time_all <- sum(mrot[user, 4:67][rep(c(F, T), 32)])
-  time_static <- sum(mrot[user, 4:35][rep(c(F, T), 16)])
-  time_animation <- sum(mrot[user, 36:67][rep(c(F, T), 16)])
+```{r}
+mrot <- dbGetQuery(db_moodle_tsu,'SELECT userid, data FROM mdl_mrot_data;')
+mrot_answers <- strsplit(mrot$data, " ", fixed = F)
+mrot_answers <- as.data.frame(matrix(unlist(mrot_answers), ncol = 66, byrow = T))
+mrot_answers[, c(65, 66)] <- NULL
+names(mrot_answers)[c(T, F)] <- paste0("a", 1:length(names(mrot_answers)[c(T, F)]))
+names(mrot_answers)[c(F, T)] <- paste0("t", 1:length(names(mrot_answers)[c(F, T)]))
+mrot_answers <- lapply(mrot_answers, as.numeric)
+mrot <- cbind(mrot, mrot_answers)
+mrot$data <- NULL
+
+```
+
+
+```{r}
+data_mrot <- data.frame()
+
+for (user in 1:nrow(mrot)) {
+  time_all <- rowSums(mrot[user, 2:65][c(F, T)])
+  time_all_mean <- rowMeans(mrot[user, 2:65][c(F, T)])
   
-  right_all <- LENGTH_TEST - sum(mrot[user, 4:67][rep(c(T, F), 32)] != correct_answers)
-  right_static <- LENGTH_TEST/2 - sum(mrot[user, 4:35][rep(c(T, F), 16)] != correct_answers[1:16])
-  right_animation <- LENGTH_TEST/2 - sum(mrot[user, 36:67][rep(c(T, F), 16)] != correct_answers[17:32])
-  
+  time_static <- rowSums(mrot[user, 2:33][c(F, T)])
+  time_static_mean <- rowMeans(mrot[user, 2:33][c(F, T)])
+  time_animation <- rowSums(mrot[user, 34:65][c(F, T)])
+  time_animation_mean <- rowMeans(mrot[user, 34:65][c(F, T)])
+
+  right_all <- LENGTH_TEST - sum(mrot[user, 2:65][c(T, F)] != correct_answers)
+  right_static <- LENGTH_TEST/2 - sum(mrot[user, 2:33][c(T, F)] != correct_answers[1:16])
+  right_animation <- LENGTH_TEST/2 - sum(mrot[user, 34:65][c(T, F)] != correct_answers[17:32])
+
   error_all <- LENGTH_TEST - right_all
   error_static <- LENGTH_TEST/2 - right_static
   error_animation <- LENGTH_TEST/2 - right_animation
-  
-  data_mrot <- add_row(data_mrot, username=mrot$username[user], 
-                       time_all=time_all, time_static=time_static, time_animation=time_animation,
-                       right_all=right_all, right_static=right_static, right_animation=right_animation,
-                       error_all=error_all, error_static=error_static, error_animation=error_animation)
+
+  data_mrot <- rbind(data_mrot, data.frame(user_id = mrot$userid[user], time_all, time_all_mean, 
+                                           time_static, time_static_mean, 
+                                           time_animation, time_animation_mean,
+                                           right_all, right_static, right_animation, 
+                                           error_all, error_static, error_animation))
 }
-
-
-data_mrot
-
 ```
 
-```{r}
-data_mrot <- merge(data_mrot, moodle_users, by='username', all = T, all.x = T, all.y = F)
-data_mrot <- relocate(data_mrot, user_id, .before = username)
 
+```{r}
 write.csv2(data_mrot, file = "./data/data_mrot.csv", row.names = F)
 write_xlsx(data_mrot, "./data/data_mrot.xlsx")
 ```
