@@ -19,7 +19,6 @@ suppressMessages(library("writexl"))
 
 ```{r}
 correct_answers <- c(1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1)
-LENGTH_TEST <- 32
 ```
 
 
@@ -47,41 +46,36 @@ names(mrot_answers)[c(F, T)] <- paste0("t", 1:length(names(mrot_answers)[c(F, T)
 mrot_answers <- lapply(mrot_answers, as.numeric)
 mrot <- cbind(mrot, mrot_answers)
 mrot$data <- NULL
-
 ```
 
 
 ```{r}
-data_mrot <- data.frame()
+mrot_results <- select(mrot, userid)
 
-for (user in 1:nrow(mrot)) {
-  time_all <- rowSums(mrot[user, 2:65][c(F, T)])
-  time_all_mean <- rowMeans(mrot[user, 2:65][c(F, T)])
-  
-  time_static <- rowSums(mrot[user, 2:33][c(F, T)])
-  time_static_mean <- rowMeans(mrot[user, 2:33][c(F, T)])
-  time_animation <- rowSums(mrot[user, 34:65][c(F, T)])
-  time_animation_mean <- rowMeans(mrot[user, 34:65][c(F, T)])
+mrot_results$time_all <- rowSums(select(mrot, starts_with("t")))
+mrot_results$time_all_mean <- rowMeans(select(mrot, starts_with("t")))
 
-  right_all <- LENGTH_TEST - sum(mrot[user, 2:65][c(T, F)] != correct_answers)
-  right_static <- LENGTH_TEST/2 - sum(mrot[user, 2:33][c(T, F)] != correct_answers[1:16])
-  right_animation <- LENGTH_TEST/2 - sum(mrot[user, 34:65][c(T, F)] != correct_answers[17:32])
+mrot_results$time_static <- rowSums(select(mrot, starts_with("t"))[, 1:16])
+mrot_results$time_static_mean <- rowMeans(select(mrot, starts_with("t"))[, 1:16])
+mrot_results$time_animation <- rowSums(select(mrot, starts_with("t"))[, 17:32])
+mrot_results$time_animation_mean <- rowMeans(select(mrot, starts_with("t"))[, 17:32])
 
-  error_all <- LENGTH_TEST - right_all
-  error_static <- LENGTH_TEST/2 - right_static
-  error_animation <- LENGTH_TEST/2 - right_animation
+mrot_results$right_all <- rowSums(select(mrot, starts_with("a")) == matrix(rep(correct_answers, nrow(mrot)), ncol = 32, byrow = T))
+mrot_results$right_static <- rowSums(select(mrot, starts_with("a"))[, 1:16] == matrix(rep(correct_answers[1:16], nrow(mrot)), ncol = 16, byrow = T))
+mrot_results$right_animation <- rowSums(select(mrot, starts_with("a"))[, 17:32] == matrix(rep(correct_answers[17:32], nrow(mrot)), ncol = 16, byrow = T))
 
-  data_mrot <- rbind(data_mrot, data.frame(user_id = mrot$userid[user], time_all, time_all_mean, 
-                                           time_static, time_static_mean, 
-                                           time_animation, time_animation_mean,
-                                           right_all, right_static, right_animation, 
-                                           error_all, error_static, error_animation))
-}
+mrot_results$error_all <- length(correct_answers) - mrot_results$right_all
+mrot_results$error_static <- length(correct_answers[1:16]) - mrot_results$right_static
+mrot_results$error_animation <- length(correct_answers[17:32]) - mrot_results$right_animation
+```
+
+```{r}
+mrot_all <- cbind(mrot, select(mrot_results, -userid))
 ```
 
 
 ```{r}
-write.csv2(data_mrot, file = "./data/data_mrot.csv", row.names = F)
-write_xlsx(data_mrot, "./data/data_mrot.xlsx")
+write_xlsx(mrot, "./data/mrot_raw.xlsx")
+write_xlsx(mrot_results, "./data/mrot_results.xlsx")
+write_xlsx(mrot_all, "./data/mrot_all.xlsx")
 ```
-
