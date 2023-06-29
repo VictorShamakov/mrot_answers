@@ -48,6 +48,11 @@ mrot <- cbind(mrot, mrot_answers)
 mrot$data <- NULL
 ```
 
+```{r}
+mrot[, grep("^t", names(mrot))] <- mrot[, grep("^t", names(mrot))] / 1000
+```
+
+
 
 ```{r}
 mrot_results <- select(mrot, userid)
@@ -72,6 +77,7 @@ mrot_results$error_animation <- length(correct_answers[17:32]) - mrot_results$ri
 ```{r}
 mrot_all <- cbind(mrot, select(mrot_results, -userid))
 ```
+
 
 
 ```{r}
